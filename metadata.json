@@ -1,0 +1,5 @@
+{
+  "name": "Upwork AI Agent Bio",
+  "description": "A tailored Upwork proposal generator using the Gemini API. Acts as persona Sagan Rios to analyze jobs and write proposals based on a custom knowledge base.",
+  "requestFramePermissions": []
+}
