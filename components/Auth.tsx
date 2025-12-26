@@ -42,6 +42,7 @@ export default function Auth() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-upwork-green focus:border-transparent outline-none transition-all dark:text-white"
               placeholder="you@example.com"
+              autoComplete="email"
             />
           </div>
           <div>
@@ -53,6 +54,7 @@ export default function Auth() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-upwork-green focus:border-transparent outline-none transition-all dark:text-white"
               placeholder="••••••••"
+              autoComplete="current-password"
             />
           </div>
 

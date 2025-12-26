@@ -5,11 +5,12 @@ import { format, isToday, isThisWeek, isThisMonth, parseISO } from 'date-fns';
 interface HistoryViewProps {
   proposals: SavedProposal[];
   onSelect: (proposal: SavedProposal) => void;
+  onDelete: (id: string) => void;
 }
 
 type GroupMode = 'day' | 'week' | 'month';
 
-const HistoryView: React.FC<HistoryViewProps> = ({ proposals, onSelect }) => {
+const HistoryView: React.FC<HistoryViewProps> = ({ proposals, onSelect, onDelete }) => {
   const [viewMode, setViewMode] = useState<GroupMode>('day');
 
   const groupedProposals = useMemo(() => {
@@ -69,9 +70,25 @@ const HistoryView: React.FC<HistoryViewProps> = ({ proposals, onSelect }) => {
                             <div 
                                 key={prop.id} 
                                 onClick={() => onSelect(prop)}
-                                className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-upwork-green dark:hover:border-upwork-green cursor-pointer transition-all group"
+                                className="relative bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-upwork-green dark:hover:border-upwork-green cursor-pointer transition-all group"
                             >
-                                <div className="flex justify-between items-start mb-2">
+                                {/* Delete Button */}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm('Are you sure you want to delete this proposal history? This action cannot be undone.')) {
+                                            onDelete(prop.id);
+                                        }
+                                    }}
+                                    className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-100 md:opacity-0 group-hover:opacity-100 transition-all z-10"
+                                    title="Delete Proposal"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+
+                                <div className="flex justify-between items-start mb-2 pr-8">
                                     <div className={`text-xs font-bold px-2 py-1 rounded ${
                                         (prop.match_score?.includes('8') || prop.match_score?.includes('9')) 
                                         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'

@@ -62,21 +62,25 @@ If the user has provided knowledge base text, prioritize that information to pro
 
 export const generateResponse = async (
   jobDescription: string,
-  knowledgeBaseContent: string
+  knowledgeBaseContent: string,
+  userApiKey?: string
 ): Promise<string> => {
   try {
-    if (!process.env.API_KEY) {
-        throw new Error("API Key is missing. If you just added it in Vercel, please REDEPLOY your project for changes to take effect.");
+    // Prioritize user-provided key, fallback to env variable
+    const keyToUse = userApiKey || process.env.API_KEY;
+
+    if (!keyToUse) {
+      throw new Error("API Key is missing. Please provide one in Settings or configure the environment variable.");
     }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: keyToUse });
 
     let finalSystemInstruction = SYSTEM_INSTRUCTION;
     if (knowledgeBaseContent.trim().length > 0) {
-        finalSystemInstruction += `\n\n[[RELEVANT KNOWLEDGE BASE START]]\n${knowledgeBaseContent}\n[[RELEVANT KNOWLEDGE BASE END]]\n\nIMPORTANT: Use the details in the Knowledge Base above to customize the proposal (metrics, specific case studies).`;
+      finalSystemInstruction += `\n\n[[RELEVANT KNOWLEDGE BASE START]]\n${knowledgeBaseContent}\n[[RELEVANT KNOWLEDGE BASE END]]\n\nIMPORTANT: Use the details in the Knowledge Base above to customize the proposal (metrics, specific case studies).`;
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-1.5-flash',
       contents: jobDescription,
       config: {
         systemInstruction: finalSystemInstruction,

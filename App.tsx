@@ -6,6 +6,7 @@ import FileUpload from './components/FileUpload';
 import MessageBubble from './components/MessageBubble';
 import HistoryView from './components/HistoryView';
 import Auth from './components/Auth';
+import SettingsModal from './components/SettingsModal';
 import { Session } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
@@ -44,7 +45,25 @@ const App: React.FC = () => {
   const [proposals, setProposals] = useState<SavedProposal[]>([]);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   
+  // New States for API Key and Settings
+  const [userApiKey, setUserApiKey] = useState('');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [missingKeyError, setMissingKeyError] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Check for API Key on mount and when userApiKey changes
+  useEffect(() => {
+    const envKey = process.env.API_KEY;
+    // Check if envKey is actually defined and not an empty string or "undefined" string
+    const hasEnvKey = envKey && envKey !== "undefined" && envKey !== "";
+    
+    if (!hasEnvKey && !userApiKey) {
+      setMissingKeyError(true);
+    } else {
+      setMissingKeyError(false);
+    }
+  }, [userApiKey]);
 
   // Initial Data Fetch (Only if logged in)
   useEffect(() => {
@@ -111,6 +130,21 @@ const App: React.FC = () => {
            await supabase.from('knowledge_base').delete().match({ id: id });
       }
   };
+  
+  // Handler for deleting a proposal
+  const handleDeleteProposal = async (id: string) => {
+      // Optimistic update
+      setProposals(prev => prev.filter(p => p.id !== id));
+      
+      const { error } = await supabase.from('proposals').delete().eq('id', id);
+      
+      if (error) {
+          console.error('Error deleting proposal:', error);
+          // Revert if failed (simple refetch)
+          fetchHistory();
+          alert('Failed to delete proposal.');
+      }
+  };
 
   const handleSend = async (overrideDuplicate = false) => {
     if (!input.trim() || genState.isGenerating) return;
@@ -139,7 +173,9 @@ const App: React.FC = () => {
 
     try {
       const kbContent = files.map(f => `--- FILE: ${f.name} ---\n${f.content}`).join('\n\n');
-      const responseText = await generateResponse(userMessage.text, kbContent);
+      
+      // Pass the userApiKey to the service
+      const responseText = await generateResponse(userMessage.text, kbContent, userApiKey);
 
       const botMessage: Message = {
         id: crypto.randomUUID(),
@@ -229,6 +265,55 @@ const App: React.FC = () => {
 
   return (
     <div className={`${darkMode ? 'dark' : ''} h-screen flex flex-col`}>
+      {/* Settings Modal */}
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        apiKey={userApiKey}
+        onSave={(key) => setUserApiKey(key)}
+      />
+
+      {/* Missing API Key Alert - HIDDEN IF SETTINGS IS OPEN */}
+      {missingKeyError && !isSettingsOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 border-2 border-red-500 animate-pulse-border">
+                <div className="flex items-center gap-3 mb-4">
+                     <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full text-red-600 dark:text-red-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                     </div>
+                     <h3 className="text-xl font-bold text-gray-800 dark:text-white">Missing API Key</h3>
+                </div>
+                
+                <p className="text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
+                    The application cannot find the <strong>Google Gemini API Key</strong>. 
+                    This usually happens on new deployments (e.g., Vercel) where environment variables are not yet configured.
+                </p>
+                
+                <div className="bg-gray-100 dark:bg-gray-900 p-3 rounded-lg mb-6 border border-gray-200 dark:border-gray-700">
+                     <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">Required Variable</p>
+                     <code className="text-sm font-bold text-gray-800 dark:text-gray-200 block">GOOGLE_API_KEY</code>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                    <button 
+                        onClick={() => { setIsSettingsOpen(true); }}
+                        className="w-full px-4 py-3 bg-upwork-green text-white rounded-lg hover:bg-upwork-hover font-medium shadow-md transition-all flex items-center justify-center gap-2"
+                    >
+                        <span>Enter Temporary Key</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
+                    </button>
+                    <p className="text-xs text-center text-gray-400">
+                        Or configure it in your Vercel Project Settings.
+                    </p>
+                </div>
+            </div>
+        </div>
+      )}
+
       <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
         
         {/* Header */}
@@ -255,6 +340,18 @@ const App: React.FC = () => {
                 </button>
             </div>
 
+            {/* Settings Button */}
+             <button
+                onClick={() => setIsSettingsOpen(true)}
+                className={`p-2 rounded-full transition-colors ${userApiKey ? 'text-upwork-green bg-green-50 dark:bg-green-900/30' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                title="Settings / API Key"
+             >
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                 </svg>
+             </button>
+
              <button 
                 onClick={toggleTheme}
                 className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -273,7 +370,7 @@ const App: React.FC = () => {
 
              <button
                 onClick={handleSignOut}
-                className="text-xs text-red-500 hover:text-red-700 font-medium"
+                className="text-xs text-red-500 hover:text-red-700 font-medium ml-1"
              >
                  Sign Out
              </button>
@@ -410,7 +507,11 @@ const App: React.FC = () => {
                     </div>
                 </>
             ) : (
-                <HistoryView proposals={proposals} onSelect={handleHistorySelect} />
+                <HistoryView 
+                    proposals={proposals} 
+                    onSelect={handleHistorySelect}
+                    onDelete={handleDeleteProposal}
+                />
             )}
           </main>
         </div>
