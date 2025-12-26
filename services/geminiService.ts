@@ -65,12 +65,10 @@ export const generateResponse = async (
   knowledgeBaseContent: string
 ): Promise<string> => {
   try {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      throw new Error("API Key is missing in environment variables.");
+    if (!process.env.API_KEY) {
+        throw new Error("API Key is missing. If you just added it in Vercel, please REDEPLOY your project for changes to take effect.");
     }
-
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     let finalSystemInstruction = SYSTEM_INSTRUCTION;
     if (knowledgeBaseContent.trim().length > 0) {
